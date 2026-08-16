@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PWA 自检</title>
+<style>
+  :root{--bg:#eef1f8;--text:#161c2e;--dim:#5a6480;--good:#10b981;--bad:#ef4444;--accent:#5c6cff;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:24px;}
+  .card{width:100%;max-width:520px;background:#fff;border-radius:24px;padding:28px;box-shadow:0 20px 55px rgba(30,40,80,.14);}
+  h1{font-size:20px;margin-bottom:4px;}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:20px;}
+  ul{list-style:none;display:flex;flex-direction:column;gap:10px;}
+  li{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;background:#f5f7fc;font-size:14px;line-height:1.5;}
+  li.pass{background:rgba(16,185,129,.08);}
+  li.fail{background:rgba(239,68,68,.08);}
+  li .ic{flex-shrink:0;}
+  li span{color:var(--dim);font-size:12px;word-break:break-all;}
+  .hint{margin-top:20px;padding:12px 14px;border-radius:14px;background:rgba(92,108,255,.08);color:var(--dim);font-size:12.5px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🧪 PWA 自检</h1>
+  <div class="sub">检测的是主页 index.html 与整站资源，全部 ✅ 即说明 PWA 改造成功</div>
+  <ul id="r"><li><span class="ic">⏳</span>检测中…</li></ul>
+  <div class="hint">通过 <code>http://localhost:8123/</code> 访问主页后，浏览器地址栏会出现「安装」图标；iOS Safari 用「分享 → 添加到主屏幕」。</div>
+</div>
+<script>
+(async () => {
+  const out = [];
+  const add = (name, pass, extra) => out.push({ name, pass, extra: extra || '' });
+
+  add('Service Worker API', 'serviceWorker' in navigator);
+  add('Cache API（离线缓存基础）', 'caches' in window);
+
+  // 检查主页 index.html 是否包含 PWA 链接
+  try {
+    const r = await fetch('index.html');
+    const html = await r.text();
+    add('主页 manifest 链接', html.includes('rel="manifest"'), 'index.html 第 10 行');
+    add('主页 apple-touch-icon 链接', html.includes('rel="apple-touch-icon"'), 'index.html 第 11 行');
+  } catch (e) {
+    add('主页链接检查', false, String(e));
+  }
+
+  try {
+    const reg = await navigator.serviceWorker.register('./sw.js');
+    await navigator.serviceWorker.ready;
+    add('Service Worker 注册并激活', !!reg.active, 'scope=' + reg.scope + ' · state=' + (reg.active ? reg.active.state : 'n/a'));
+  } catch (e) {
+    add('Service Worker 注册', false, String(e));
+  }
+
+  try {
+    const r = await fetch('manifest.json');
+    const j = await r.json();
+    add('manifest.json 解析', !!(r.ok && j.name), j.name + ' · ' + j.display + ' · icons=' + (j.icons || []).length);
+  } catch (e) {
+    add('manifest.json 解析', false, String(e));
+  }
+
+  try {
+    const cache = await caches.open('verify-check');
+    await cache.put('./verify.html', new Response('ok'));
+    await cache.delete('./verify.html');
+    add('缓存读写', true, 'Cache API 正常工作');
+  } catch (e) {
+    add('缓存读写', false, String(e));
+  }
+
+  document.getElementById('r').innerHTML = out.map(o =>
+    '<li class="' + (o.pass ? 'pass' : 'fail') + '"><span class="ic">' + (o.pass ? '✅' : '❌') + '</span><div>' + o.name +
+    (o.extra ? '<br><span>' + o.extra + '</span>' : '') + '</div></li>'
+  ).join('');
+})();
+</script>
+</body>
+</html>
