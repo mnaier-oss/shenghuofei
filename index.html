@@ -118,9 +118,9 @@ input,textarea{user-select:text;}
 .month-nav button:active{transform:scale(.9);background:rgba(30,40,80,.08);}
 .month-title{font-size:19px;font-weight:800;min-width:124px;text-align:center;letter-spacing:.2px;}
 .month-title small{display:block;font-size:11px;color:var(--faint);font-weight:500;margin-top:3px;}
-.app-main{flex:1;overflow-y:auto;padding:8px 18px 130px;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;}
+.app-main{flex:1;overflow-y:auto;padding:8px 18px 130px;-webkit-overflow-scrolling:touch;}
 .page{display:none;}
-.page.active{display:block;animation:pageIn .5s cubic-bezier(.22,1,.36,1);}
+.page.active{display:block;animation:pageIn .28s cubic-bezier(.22,1,.36,1);}
 @keyframes pageIn{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:translateY(0);}}
 
 /* ================= 首页 ================= */
@@ -1334,16 +1334,23 @@ function renderSettings(){
 }
 
 /* ================= 页面切换 ================= */
+const renderedPages={};
 function showPage(id){
   state.page=id;
   $$('.page').forEach(p=>p.classList.remove('active'));
   $('#page-'+id).classList.add('active');
   $$('.tab').forEach(t=>t.classList.toggle('on',t.dataset.page===id));
   $$('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.page===id?'true':'false'));
-  if(id==='home')renderHome();
-  else if(id==='records')renderRecords();
-  else if(id==='stats')renderStats();
-  else if(id==='settings')renderSettings();
+  // 页面 DOM 保留复用：首次进入才渲染，之后切换只显示/隐藏，
+  // 避免每次切 tab 都 innerHTML 重建（重排 + WebGlass 重处理玻璃层）造成卡顿。
+  // 数据变化时各事件处理器仍会显式调用 render*() 刷新，不受影响。
+  if(!renderedPages[id]){
+    renderedPages[id]=true;
+    if(id==='home')renderHome();
+    else if(id==='records')renderRecords();
+    else if(id==='stats')renderStats();
+    else if(id==='settings')renderSettings();
+  }
   $('#app-main').scrollTop=0;
 }
 function changeMonth(d){
